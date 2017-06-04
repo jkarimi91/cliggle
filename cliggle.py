@@ -2,7 +2,6 @@ import getpass
 import json
 import os
 import re
-import sys
 
 import click
 import requests
@@ -47,8 +46,7 @@ def login_user():
     response = session.post(url, data=data)
 
     if response.url == url:
-        click.echo('Incorrect username/password.')
-        sys.exit(0)
+        raise click.ClickException('Incorrect username/password.')
 
     return session
 
@@ -67,27 +65,36 @@ def has_remaining_daily_submissions(competition_url, session):
     return get_json(response.text, pattern) > 0
 
 
-def download(competition_file, session):
-    url = BASE_URL + competition_file['url']
-    response = session.get(url, stream=True)
-    with open(competition_file['name'], 'wb') as f:
-        kwargs = {
-            'total': int(response.headers['content-length']),
-            'unit': 'B',
-            'unit_scale': True,
-            'desc': competition_file['name']
-        }
-        progress_bar = tqdm.tqdm(**kwargs)
+def download(competition_url, session):
+    if not has_accepted_rules(competition_url, session):
+        raise click.ClickException('Accept competition rules to continue.')
 
-        chunk_size = 10**6  # 1 MB
-        content = response.iter_content(chunk_size=chunk_size)
-        for chunk in content:
-            progress_bar.update(len(chunk))
-            f.write(chunk)
-        progress_bar.close()
+    for cf in get_file_list(competition_url, session):
+        url = BASE_URL + cf['url']
+        response = session.get(url, stream=True)
+        with open(cf['name'], 'wb') as f:
+            kwargs = {
+                'total': int(response.headers['content-length']),
+                'unit': 'B',
+                'unit_scale': True,
+                'desc': cf['name']
+            }
+            progress_bar = tqdm.tqdm(**kwargs)
+
+            chunk_size = 10**6  # 1 MB
+            content = response.iter_content(chunk_size=chunk_size)
+            for chunk in content:
+                progress_bar.update(len(chunk))
+                f.write(chunk)
+            progress_bar.close()
 
 
 def submit(filename, message, competition_url, session):
+    if not has_accepted_rules(competition_url, session):
+        raise click.ClickException('Accept competition rules to continue.')
+    if not has_remaining_daily_submissions(competition_url, session):
+        raise click.ClickException('Max number of daily submissions reached. Try again later.')
+
     data = {
         'fileName': filename,
         'contentLength': os.path.getsize(filename),
@@ -125,19 +132,14 @@ def download_files(title):
     comps = get_competition_list()
     titles = [c['competitionTitle'] for c in comps]
     titles = map(shorten, titles)
-    if title in titles:
-        i = titles.index(title)
-        url = [c['competitionUrl'] for c in comps][i]
-        session = login_user()
+    if title not in titles:
+        raise click.ClickException('Invalid title.')
 
-        if has_accepted_rules(url, session):
-            files = get_file_list(url, session)
-            for f in files:
-                download(f, session)
-        else:
-            click.echo('Accept competition rules to continue.')
-    else:
-        click.echo('Invalid title.')
+    i = titles.index(title)
+    url = [c['competitionUrl'] for c in comps][i]
+    session = login_user()
+
+    download(url, session)
 
 
 @click.command('submit')
@@ -148,20 +150,14 @@ def submit_predictions(title, filename, message):
     comps = get_competition_list()
     titles = [c['competitionTitle'] for c in comps]
     titles = map(shorten, titles)
-    if title in titles:
-        i = titles.index(title)
-        url = [c['competitionUrl'] for c in comps][i]
-        session = login_user()
+    if title not in titles:
+        raise click.ClickException('Invalid title.')
 
-        if has_accepted_rules(url, session):
-            if has_remaining_daily_submissions(url, session):
-                submit(filename, message, url, session)
-            else:
-                click.echo('Max number of daily submissions reached. Try again later.')
-        else:
-            click.echo('Accept competition rules to continue.')
-    else:
-        click.echo('Invalid title.')
+    i = titles.index(title)
+    url = [c['competitionUrl'] for c in comps][i]
+    session = login_user()
+
+    submit(filename, message, url, session)
 
 
 cliggle.add_command(submit_predictions)
