@@ -1,4 +1,3 @@
-import getpass
 import json
 import os
 import re
@@ -36,12 +35,12 @@ def shorten(title):
     return ''.join(ch for ch in word.lower() if ch.isalnum())
 
 
-def login_user():
+def login_user(username, password):
     session = requests.session()
     url = BASE_URL + '/account/login'
     data = {
-        'UserName': raw_input('Username: '),
-        'Password': getpass.getpass('Password: ')
+        'UserName': username,
+        'Password': password
     }
     response = session.post(url, data=data)
 
@@ -128,17 +127,19 @@ def list_competitions():
 
 @click.command('download')
 @click.argument('title')
-def download_files(title):
+@click.option('-u', '--username', prompt=True)
+@click.option('-p', '--password', prompt=True, hide_input=True)
+def download_files(title, username, password):
     comps = get_competition_list()
     titles = [c['competitionTitle'] for c in comps]
     titles = map(shorten, titles)
     if title not in titles:
         raise click.ClickException('Invalid title.')
 
+    session = login_user(username, password)
+
     i = titles.index(title)
     url = [c['competitionUrl'] for c in comps][i]
-    session = login_user()
-
     download(url, session)
 
 
@@ -146,17 +147,19 @@ def download_files(title):
 @click.argument('title')
 @click.argument('filename')
 @click.option('-m', '--message')
-def submit_predictions(title, filename, message):
+@click.option('-u', '--username', prompt=True)
+@click.option('-p', '--password', prompt=True, hide_input=True)
+def submit_predictions(title, filename, message, username, password):
     comps = get_competition_list()
     titles = [c['competitionTitle'] for c in comps]
     titles = map(shorten, titles)
     if title not in titles:
         raise click.ClickException('Invalid title.')
 
+    session = login_user(username, password)
+
     i = titles.index(title)
     url = [c['competitionUrl'] for c in comps][i]
-    session = login_user()
-
     submit(filename, message, url, session)
 
 
