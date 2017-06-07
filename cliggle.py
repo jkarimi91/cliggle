@@ -11,16 +11,20 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
 def get_competition_list():
-    url = BASE_URL + '/competitions'
-    response = requests.get(url)
+    response = requests.get(BASE_URL + '/competitions')
     pattern = r'\"competitions\":(\[.+?\])'
     return get_json(response.text, pattern)
 
 
 def get_file_list(competition_url, session):
-    url = BASE_URL + competition_url + '/data'
-    response = session.get(url)
+    response = session.get(BASE_URL + competition_url + '/data')
     pattern = r'\"files\":(\[.+?\])'
+    return get_json(response.text, pattern)
+
+
+def get_team(competition_url, session):
+    response = session.get(BASE_URL + competition_url)
+    pattern = r'\"team\":({.+?}),'
     return get_json(response.text, pattern)
 
 
@@ -46,7 +50,6 @@ def login_user(username, password):
 
     if response.url == url:
         raise click.ClickException('Incorrect username/password.')
-
     return session
 
 
@@ -78,21 +81,18 @@ def download(competition_url, session):
                 'unit_scale': True,
                 'desc': cf['name']
             }
-            progress_bar = tqdm.tqdm(**kwargs)
-
-            chunk_size = 10**6  # 1 MB
-            content = response.iter_content(chunk_size=chunk_size)
-            for chunk in content:
-                progress_bar.update(len(chunk))
-                f.write(chunk)
-            progress_bar.close()
+            with tqdm.tqdm(**kwargs) as progress_bar:
+                chunk_size = 10**6  # 1 MB
+                content = response.iter_content(chunk_size=chunk_size)
+                for chunk in content:
+                    progress_bar.update(len(chunk))
+                    f.write(chunk)
 
 
 def submit(filename, message, competition_url, session):
     if not has_accepted_rules(competition_url, session):
         raise click.ClickException('Accept competition rules to continue.')
-    prev_sub_count = remaining_daily_submissions(competition_url, session)
-    if prev_sub_count == 0:
+    if remaining_daily_submissions(competition_url, session) == 0:
         raise click.ClickException('Max number of daily submissions reached. Try again later.')
 
     data = {
@@ -109,9 +109,7 @@ def submit(filename, message, competition_url, session):
 
     # Initialize status.json aka submission status check.
     # Note: must initialize status.json before making submission.
-    response = session.get(BASE_URL + competition_url)
-    pattern = r'\"team\":({.+?}),'
-    team_id = get_json(response.text, pattern)['id']
+    team_id = get_team(competition_url, session)['id']
     api_version = 1
     submission_id = 'null'
     competition_id = [c for c in get_competition_list() if c['competitionUrl'] == competition_url][0]['competitionId']
@@ -157,17 +155,13 @@ def list_competitions():
 @click.option('-u', '--username', prompt=True)
 @click.option('-p', '--password', prompt=True, hide_input=True)
 def download_files(title, username, password):
-    comps = get_competition_list()
-    titles = [c['competitionTitle'] for c in comps]
-    titles = map(shorten, titles)
+    titles = map(shorten, [c['competitionTitle'] for c in get_competition_list()])
     if title not in titles:
         raise click.ClickException('Invalid title.')
 
+    competition_url = [c['competitionUrl'] for c in get_competition_list()][titles.index(title)]
     session = login_user(username, password)
-
-    i = titles.index(title)
-    url = [c['competitionUrl'] for c in comps][i]
-    download(url, session)
+    download(competition_url, session)
 
 
 @click.command('submit')
@@ -177,17 +171,13 @@ def download_files(title, username, password):
 @click.option('-u', '--username', prompt=True)
 @click.option('-p', '--password', prompt=True, hide_input=True)
 def submit_predictions(title, filename, message, username, password):
-    comps = get_competition_list()
-    titles = [c['competitionTitle'] for c in comps]
-    titles = map(shorten, titles)
+    titles = map(shorten, [c['competitionTitle'] for c in get_competition_list()])
     if title not in titles:
         raise click.ClickException('Invalid title.')
 
+    competition_url = [c['competitionUrl'] for c in get_competition_list()][titles.index(title)]
     session = login_user(username, password)
-
-    i = titles.index(title)
-    url = [c['competitionUrl'] for c in comps][i]
-    submit(filename, message, url, session)
+    submit(filename, message, competition_url, session)
 
 
 cliggle.add_command(submit_predictions)
