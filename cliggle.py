@@ -144,6 +144,12 @@ def cliggle():
 
 @click.command('list')
 def list_competitions():
+    """List the current competition titles.
+
+    Note: we use a shortened title for ease of use. Specifically,
+    we use the first word, of the full title, lower cased and stripped
+    of all non-alphanumeric characters.
+    """
     comps = get_competition_list()
     titles = [c['competitionTitle'] for c in comps]
     titles = '\n'.join(shorten(t) for t in titles)
@@ -152,9 +158,10 @@ def list_competitions():
 
 @click.command('download')
 @click.argument('title')
-@click.option('-u', '--username', prompt=True)
-@click.option('-p', '--password', prompt=True, hide_input=True)
+@click.option('-u', '--username', prompt=True, help='Kaggle username.')
+@click.option('-p', '--password', prompt=True, hide_input=True, help='Kaggle password.')
 def download_files(title, username, password):
+    """Download the data files for a competition."""
     titles = map(shorten, [c['competitionTitle'] for c in get_competition_list()])
     if title not in titles:
         raise click.ClickException('Invalid title.')
@@ -167,10 +174,11 @@ def download_files(title, username, password):
 @click.command('submit')
 @click.argument('title')
 @click.argument('filename')
-@click.option('-m', '--message')
-@click.option('-u', '--username', prompt=True)
-@click.option('-p', '--password', prompt=True, hide_input=True)
+@click.option('-m', '--message', help='A description of the submission.')
+@click.option('-u', '--username', prompt=True, help='Kaggle username.')
+@click.option('-p', '--password', prompt=True, hide_input=True, help='Kaggle password.')
 def submit_predictions(title, filename, message, username, password):
+    """Submit predictions for a competition."""
     titles = map(shorten, [c['competitionTitle'] for c in get_competition_list()])
     if title not in titles:
         raise click.ClickException('Invalid title.')
