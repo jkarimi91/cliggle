@@ -57,11 +57,11 @@ def has_accepted_rules(competition_url, session):
     return get_json(response.text, pattern)
 
 
-def has_remaining_daily_submissions(competition_url, session):
+def remaining_daily_submissions(competition_url, session):
     url = BASE_URL + competition_url
     response = session.get(url)
     pattern = r'"remainingDailySubmissions":(\d+)'
-    return get_json(response.text, pattern) > 0
+    return get_json(response.text, pattern)
 
 
 def download(competition_url, session):
@@ -91,7 +91,8 @@ def download(competition_url, session):
 def submit(filename, message, competition_url, session):
     if not has_accepted_rules(competition_url, session):
         raise click.ClickException('Accept competition rules to continue.')
-    if not has_remaining_daily_submissions(competition_url, session):
+    prev_sub_count = remaining_daily_submissions(competition_url, session)
+    if prev_sub_count == 0:
         raise click.ClickException('Max number of daily submissions reached. Try again later.')
 
     data = {
@@ -100,15 +101,41 @@ def submit(filename, message, competition_url, session):
         'lastModifiedDateUtc': os.path.getmtime(filename)
     }
     response = session.post(BASE_URL + '/blobs/inbox/submissions', data=data)
+    file_upload_url = response.json()['createUrl']
 
     files = {'file': (filename, open(filename, 'rb'))}
-    response = session.post(BASE_URL + response.json()['createUrl'], files=files)
+    response = session.post(BASE_URL + file_upload_url, files=files)
+    blob_file_token = response.json()['token']
+
+    # Initialize status.json aka submission status check.
+    # Note: must initialize status.json before making submission.
+    response = session.get(BASE_URL + competition_url)
+    pattern = r'\"team\":({.+?}),'
+    team_id = get_json(response.text, pattern)['id']
+    api_version = 1
+    submission_id = 'null'
+    competition_id = [c for c in get_competition_list() if c['competitionUrl'] == competition_url][0]['competitionId']
+    all_submissions_url = '{}/c/{}//submissions.json?sortBy=date&group=all&page=1'.format(BASE_URL, competition_id)
+    last_submission_id = session.get(all_submissions_url).json()[0]['id']
+    status_url_str = '{}{}/submissions/status.json?apiVersion={}&teamId={}&submissionId={}&greaterThanSubmissionId={}'
+    status_url = status_url_str.format(BASE_URL, competition_url, api_version,
+                                       team_id, submission_id, last_submission_id)
+    session.get(status_url)
 
     data = {
-        'blobFileTokens': [response.json()['token']],
+        'blobFileTokens': [blob_file_token],
         'submissionDescription': message
     }
     session.post(BASE_URL + competition_url + '/submission.json', data=data)
+
+    response = session.get(status_url)
+    submission_id = response.json()['id']
+    status_url = status_url_str.format(BASE_URL, competition_url, api_version,
+                                       team_id, submission_id, last_submission_id)
+    response = session.get(status_url)
+    while response.json()['submissionStatus'] == 'pending':
+        response = session.get(status_url)
+    click.echo('Submission {}.'.format(response.json()['submissionStatus']))
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)
