@@ -1,3 +1,6 @@
+# login credentials for testing
+credentials.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
