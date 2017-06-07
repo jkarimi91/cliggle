@@ -1,3 +1,6 @@
+# PyCharm project settings
+.idea/
+
 # login credentials for testing
 credentials.py
 
