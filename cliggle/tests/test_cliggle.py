@@ -2,9 +2,12 @@ import os
 
 from click.testing import CliRunner
 
-from cliggle import cliggle
+from cliggle.cli import cliggle
 from credentials import PASSWORD
 from credentials import USERNAME
+
+
+os.chdir(os.path.dirname(__file__))
 
 
 class TestList(object):
