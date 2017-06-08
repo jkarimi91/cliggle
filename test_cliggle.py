@@ -1,5 +1,4 @@
 import os
-import time
 
 from click.testing import CliRunner
 
@@ -73,8 +72,6 @@ class TestSubmit(object):
         args = ['submit', 'digit', filename, '-m testing cliggle']
         result = runner.invoke(cliggle, args=args, input='\n'.join([USERNAME, PASSWORD]))
         while result.exception is None:
-            t = time.time()
-            os.utime('sample_submission.csv', (t, t))
             result = runner.invoke(cliggle, args=args, input='\n'.join([USERNAME, PASSWORD]))
         os.remove(filename)
         assert 'Max number of daily submissions reached. Try again later.' in result.output
