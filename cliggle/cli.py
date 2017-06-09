@@ -1,10 +1,12 @@
+from __future__ import absolute_import
+
 import click
 
-from helpers import download
-from helpers import get_competition_list
-from helpers import login_user
-from helpers import shorten
-from helpers import submit
+from .helpers import download
+from .helpers import get_competition_list
+from .helpers import login_user
+from .helpers import shorten
+from .helpers import submit
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -35,7 +37,7 @@ def list_competitions():
 @click.option('-p', '--password', prompt=True, hide_input=True, help='Kaggle password.')
 def download_files(title, username, password):
     """Download the data files for a competition."""
-    titles = map(shorten, [c['competitionTitle'] for c in get_competition_list()])
+    titles = [shorten(c['competitionTitle']) for c in get_competition_list()]
     if title not in titles:
         raise click.ClickException('Invalid title.')
 
@@ -52,7 +54,7 @@ def download_files(title, username, password):
 @click.option('-p', '--password', prompt=True, hide_input=True, help='Kaggle password.')
 def submit_predictions(title, filename, message, username, password):
     """Submit predictions for a competition."""
-    titles = map(shorten, [c['competitionTitle'] for c in get_competition_list()])
+    titles = [shorten(c['competitionTitle']) for c in get_competition_list()]
     if title not in titles:
         raise click.ClickException('Invalid title.')
 

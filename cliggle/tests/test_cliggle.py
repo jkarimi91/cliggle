@@ -1,11 +1,14 @@
+from __future__ import absolute_import
+
 import os
 
+from builtins import object
+from builtins import range
 from click.testing import CliRunner
 
 from cliggle.cli import cliggle
-from credentials import PASSWORD
-from credentials import USERNAME
-
+from .credentials import PASSWORD
+from .credentials import USERNAME
 
 os.chdir(os.path.dirname(__file__))
 
@@ -99,10 +102,10 @@ class TestSubmit(object):
 
 
 def create_submission(id_label, prediction_label, id_range):
-    with open('submission.csv', 'wb') as f:
+    with open('submission.csv', 'w') as f:
         f.write('{},{}\n'.format(id_label, prediction_label))
         prediction = 0
         min_id, max_id = id_range
-        for data_id in xrange(min_id, max_id + 1):
+        for data_id in range(min_id, max_id + 1):
             f.write('{},{}\n'.format(data_id, prediction))
     return 'submission.csv'
