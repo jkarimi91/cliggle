@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='cliggle',
-    version='0.1',
+    version='0.2',
     author='Jay Karimi',
     author_email='jkarimi91@gmail.com',
     description='A CLI for Kaggle competitions.',
@@ -22,7 +22,7 @@ setup(
     ],
     platforms=['Any'],
 
-    py_modules=['cliggle'],
+    packages=['cliggle'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest'],
     install_requires=[
